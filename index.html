@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landlord Tycoon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <header class="game-header">
+            <h1>Landlord <span class="highlight">Tycoon</span></h1>
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <span class="label">Balance</span>
+                    <span class="value" id="balance">$0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label">Income</span>
+                    <span class="value" id="income">+$0/s</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="game-board">
+            <section class="panel properties-market">
+                <h2>Real Estate</h2>
+                <div class="property-grid" id="market-grid">
+                    <!-- Properties injected by JS -->
+                </div>
+            </section>
+
+            <section class="panel stock-market">
+                <h2>Stock Market</h2>
+                <div class="property-grid" id="stock-grid">
+                    <!-- Stocks injected by JS -->
+                </div>
+            </section>
+
+            <section class="panel my-portfolio">
+                <h2>My Portfolio</h2>
+                <div class="portfolio-list" id="portfolio-list">
+                    <div class="empty-state">No assets owned yet. Start investing!</div>
+                </div>
+            </section>
+        </main>
+
+        <div id="notification-area"></div>
+    </div>
+    <div id="login-overlay" class="login-overlay">
+        <div class="login-card">
+            <h2>Welcome Back</h2>
+            <p>Enter your access key to continue</p>
+            <input type="password" id="login-input" placeholder="Access Key">
+            <button id="login-btn">Login</button>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>
