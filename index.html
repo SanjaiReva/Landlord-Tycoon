@@ -9,56 +9,158 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
     <div class="app-container">
         <header class="game-header">
-            <h1>Landlord <span class="highlight">Tycoon</span></h1>
-            <div class="stats-bar">
-                <div class="stat-item">
-                    <span class="label">Balance</span>
-                    <span class="value" id="balance">$0</span>
+            <div class="header-top">
+                <div class="title-section">
+                    <h1>Landlord <span class="highlight">Tycoon</span></h1>
+                    <span id="player-name-display" class="player-name"></span>
                 </div>
-                <div class="stat-item">
-                    <span class="label">Income</span>
-                    <span class="value" id="income">+$0/s</span>
+                <div class="header-controls">
+                    <div class="time-display" id="time-display">Year 1, Day 1</div>
+                    <button id="reset-btn" class="reset-btn">Reset Game</button>
                 </div>
             </div>
+
+            <div class="status-dashboard">
+                <div class="health-container">
+                    <div class="health-label">Health</div>
+                    <div class="health-bar-bg">
+                        <div class="health-bar-fill" id="health-bar" style="width: 50%;"></div>
+                    </div>
+                    <div class="health-value" id="health-value">50%</div>
+                </div>
+
+                <div class="stats-bar">
+                    <div class="stat-item">
+                        <span class="label">Balance</span>
+                        <span class="value" id="balance">$0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">Income</span>
+                        <span class="value" id="income">+$0/day</span>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="#" class="nav-link active" data-tab="real-estate">Real Estate</a></li>
+                    <li><a href="#" class="nav-link" data-tab="stock">Stock</a></li>
+                    <li><a href="#" class="nav-link" data-tab="lands">Lands</a></li>
+                    <li><a href="#" class="nav-link" data-tab="car">Car</a></li>
+                    <li><a href="#" class="nav-link" data-tab="habits">Habits</a></li>
+                    <li><a href="#" class="nav-link" data-tab="skills">Skills</a></li>
+                    <li><a href="#" class="nav-link" data-tab="goals">Goals</a></li>
+                </ul>
+            </nav>
         </header>
 
-        <main class="game-board">
-            <section class="panel properties-market">
-                <h2>Real Estate</h2>
-                <div class="property-grid" id="market-grid">
-                    <!-- Properties injected by JS -->
+        <div class="game-layout">
+            <main class="tab-content">
+                <!-- Real Estate Tab -->
+                <div id="tab-real-estate" class="tab-pane active">
+                    <section class="panel properties-market">
+                        <h2>Real Estate Market</h2>
+                        <div class="property-grid" id="market-grid">
+                            <!-- Properties injected by JS -->
+                        </div>
+                    </section>
                 </div>
-            </section>
 
-            <section class="panel stock-market">
-                <h2>Stock Market</h2>
-                <div class="property-grid" id="stock-grid">
-                    <!-- Stocks injected by JS -->
+                <!-- Stock Tab -->
+                <div id="tab-stock" class="tab-pane">
+                    <section class="panel stock-market">
+                        <h2>Stock Market</h2>
+                        <div class="property-grid" id="stock-grid">
+                            <!-- Stocks injected by JS -->
+                        </div>
+                    </section>
                 </div>
-            </section>
 
-            <section class="panel my-portfolio">
-                <h2>My Portfolio</h2>
-                <div class="portfolio-list" id="portfolio-list">
-                    <div class="empty-state">No assets owned yet. Start investing!</div>
+                <!-- Lands Tab -->
+                <div id="tab-lands" class="tab-pane">
+                    <section class="panel">
+                        <h2>Land Acquisitions</h2>
+                        <div class="property-grid" id="lands-grid"></div>
+                    </section>
                 </div>
-            </section>
-        </main>
+
+                <!-- Car Tab -->
+                <div id="tab-car" class="tab-pane">
+                    <section class="panel">
+                        <h2>Luxury Cars</h2>
+                        <div class="property-grid" id="car-grid"></div>
+                    </section>
+                </div>
+
+                <!-- Habits Tab -->
+                <div id="tab-habits" class="tab-pane">
+                    <section class="panel">
+                        <h2>Good Habits</h2>
+                        <div class="property-grid" id="habits-grid"></div>
+                    </section>
+                </div>
+
+                <!-- Skills Tab -->
+                <div id="tab-skills" class="tab-pane">
+                    <section class="panel">
+                        <h2>Skills & Education</h2>
+                        <div class="property-grid" id="skills-grid"></div>
+                    </section>
+                </div>
+
+                <!-- Goals Tab -->
+                <div id="tab-goals" class="tab-pane">
+                    <section class="panel">
+                        <h2>Life Goals</h2>
+                        <div class="property-grid" id="goals-grid"></div>
+                    </section>
+                </div>
+            </main>
+
+            <aside class="persistent-portfolio">
+                <section class="panel job-section" id="job-section">
+                    <div class="panel-header">
+                        <h2>My Job</h2>
+                        <button class="minimize-btn" id="minimize-job-btn">−</button>
+                    </div>
+                    <div class="job-content" id="job-content">
+                        <div class="input-group">
+                            <label>Your Name</label>
+                            <input type="text" id="player-name-input" placeholder="Enter Name">
+                        </div>
+                        <div class="input-group">
+                            <label>Hourly Wage ($)</label>
+                            <input type="number" id="wage-input" placeholder="0" min="0">
+                        </div>
+                        <div class="job-type-selector">
+                            <button class="job-btn active" data-type="full-time">Full-Time (8h)</button>
+                            <button class="job-btn" data-type="part-time">Part-Time (4h)</button>
+                        </div>
+                        <div class="salary-display">
+                            Daily Salary: <span id="daily-salary" class="highlight">$0</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel my-portfolio">
+                    <h2>My Portfolio</h2>
+                    <div class="chart-container">
+                        <canvas id="growthChart"></canvas>
+                    </div>
+                    <div class="portfolio-list" id="portfolio-list">
+                        <div class="empty-state">No assets owned yet. Start investing!</div>
+                    </div>
+                </section>
+            </aside>
+        </div>
 
         <div id="notification-area"></div>
-    </div>
-    <div id="login-overlay" class="login-overlay">
-        <div class="login-card">
-            <h2>Welcome Back</h2>
-            <p>Enter your access key to continue</p>
-            <input type="password" id="login-input" placeholder="Access Key">
-            <button id="login-btn">Login</button>
-        </div>
     </div>
     <script src="script.js"></script>
 </body>

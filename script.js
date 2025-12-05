@@ -1,15 +1,27 @@
 // Game Configuration
-const GAME_TICK_RATE = 1000; // 1 second
-const SAVE_KEY = 'landlord_tycoon_save_v2'; // Bump version to avoid conflicts
+const GAME_TICK_RATE = 1000; // 1 second (1 day)
+const SAVE_KEY = 'landlord_tycoon_save_v6'; // Bump version for new features
+const AUTO_SAVE_INTERVAL = 30000; // 30 seconds
 
 // Initial Game State
 const initialState = {
-    money: 1000,
+    money: 10000,
+    playerName: '',
+    day: 1,
+    health: 50,
+    history: [], // Array of { day, value }
+    job: { wage: 0, type: 'full-time' }, // { wage: number, type: 'full-time' | 'part-time' }
     properties: {}, // { id: count }
-    stocks: {} // { id: count }
+    stocks: {}, // { id: count }
+    lands: {},
+    cars: {},
+    habits: {},
+    skills: {},
+    goals: {}
 };
 
-// Property Definitions
+// --- Data Definitions ---
+
 const PROPERTY_TYPES = [
     { id: 'shack', name: 'Run-down Shack', cost: 500, income: 10, icon: '🏚️' },
     { id: 'apartment', name: 'Studio Apartment', cost: 2500, income: 60, icon: '🏢' },
@@ -19,7 +31,6 @@ const PROPERTY_TYPES = [
     { id: 'skyscraper', name: 'Office Tower', cost: 1000000, income: 35000, icon: '🌆' }
 ];
 
-// Stock Definitions
 const STOCK_TYPES = [
     { id: 'tech', name: 'Tech Startups', cost: 100, income: 2, icon: '💻' },
     { id: 'energy', name: 'Green Energy', cost: 800, income: 20, icon: '⚡' },
@@ -28,8 +39,50 @@ const STOCK_TYPES = [
     { id: 'crypto', name: 'Crypto Coin', cost: 50000, income: 1500, icon: '🪙' }
 ];
 
+const LAND_TYPES = [
+    { id: 'plot', name: 'Small Plot', cost: 5000, income: 50, icon: '🌱' },
+    { id: 'farm', name: 'Farmland', cost: 25000, income: 300, icon: '🚜' },
+    { id: 'island', name: 'Private Island', cost: 500000, income: 8000, icon: '🏝️' }
+];
+
+const CAR_TYPES = [
+    { id: 'sedan', name: 'Luxury Sedan', cost: 40000, income: 100, icon: '🚗' },
+    { id: 'sports', name: 'Sports Car', cost: 120000, income: 400, icon: '🏎️' },
+    { id: 'yacht', name: 'Super Yacht', cost: 2000000, income: 10000, icon: '🛥️' }
+];
+
+const HABIT_TYPES = [
+    { id: 'reading', name: 'Reading', cost: 50, income: 1, icon: '📚' },
+    { id: 'gym', name: 'Gym', cost: 200, income: 5, icon: '💪' },
+    { id: 'meditation', name: 'Meditation', cost: 100, income: 3, icon: '🧘' }
+];
+
+const SKILL_TYPES = [
+    { id: 'coding', name: 'Coding', cost: 1000, income: 20, icon: '💻' },
+    { id: 'marketing', name: 'Marketing', cost: 3000, income: 70, icon: '📈' },
+    { id: 'negotiation', name: 'Negotiation', cost: 8000, income: 200, icon: '🤝' }
+];
+
+const GOAL_TYPES = [
+    { id: 'travel', name: 'World Travel', cost: 10000, income: 50, icon: '✈️' },
+    { id: 'charity', name: 'Start Charity', cost: 50000, income: 300, icon: '❤️' },
+    { id: 'legacy', name: 'Build Legacy', cost: 1000000, income: 5000, icon: '🏛️' }
+];
+
+// Map category names to their data and state keys
+const CATEGORIES = {
+    'properties': { data: PROPERTY_TYPES, label: 'Real Estate' },
+    'stocks': { data: STOCK_TYPES, label: 'Stock' },
+    'lands': { data: LAND_TYPES, label: 'Land' },
+    'cars': { data: CAR_TYPES, label: 'Car' },
+    'habits': { data: HABIT_TYPES, label: 'Habit' },
+    'skills': { data: SKILL_TYPES, label: 'Skill' },
+    'goals': { data: GOAL_TYPES, label: 'Goal' }
+};
+
 // Runtime State
 let state = { ...initialState };
+let growthChart = null;
 
 // DOM Elements
 const els = {
@@ -37,78 +90,173 @@ const els = {
     income: document.getElementById('income'),
     marketGrid: document.getElementById('market-grid'),
     stockGrid: document.getElementById('stock-grid'),
+    landsGrid: document.getElementById('lands-grid'),
+    carGrid: document.getElementById('car-grid'),
+    habitsGrid: document.getElementById('habits-grid'),
+    skillsGrid: document.getElementById('skills-grid'),
+    goalsGrid: document.getElementById('goals-grid'),
     portfolioList: document.getElementById('portfolio-list'),
     notificationArea: document.getElementById('notification-area'),
-    loginOverlay: document.getElementById('login-overlay'),
-    loginInput: document.getElementById('login-input'),
-    loginBtn: document.getElementById('login-btn')
+    resetBtn: document.getElementById('reset-btn'),
+    navLinks: document.querySelectorAll('.nav-link'),
+    tabPanes: document.querySelectorAll('.tab-pane'),
+    wageInput: document.getElementById('wage-input'),
+    jobBtns: document.querySelectorAll('.job-btn'),
+    dailySalary: document.getElementById('daily-salary'),
+    playerNameInput: document.getElementById('player-name-input'),
+    playerNameDisplay: document.getElementById('player-name-display'),
+    timeDisplay: document.getElementById('time-display'),
+    healthBar: document.getElementById('health-bar'),
+    healthValue: document.getElementById('health-value'),
+    jobSection: document.getElementById('job-section'),
+    minimizeJobBtn: document.getElementById('minimize-job-btn'),
+    growthChartCanvas: document.getElementById('growthChart')
 };
 
 // --- Core Logic ---
 
 function init() {
-    // Setup Login Listeners
-    els.loginBtn.onclick = attemptLogin;
-    els.loginInput.onkeypress = (e) => {
-        if (e.key === 'Enter') attemptLogin();
-    };
-
-    if (checkSession()) {
-        startGame();
-    }
+    setupEventListeners();
+    initChart();
+    startGame();
 }
 
-function checkSession() {
-    return sessionStorage.getItem('landlord_auth') === 'true';
+function setupEventListeners() {
+    // Tab Switching
+    els.navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tabId = link.getAttribute('data-tab');
+            if (tabId === 'portfolio') return; // Should not happen as link is removed, but safe guard
+            switchTab(tabId);
+        });
+    });
+
+    // Reset Button
+    els.resetBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to reset your progress? This cannot be undone.')) {
+            resetGame();
+        }
+    });
+
+    // Job Controls
+    els.wageInput.addEventListener('input', (e) => {
+        const wage = parseFloat(e.target.value) || 0;
+        state.job.wage = wage;
+        updateJobUI();
+        saveGame();
+    });
+
+    els.jobBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const type = btn.getAttribute('data-type');
+            state.job.type = type;
+            updateJobUI();
+            saveGame();
+        });
+    });
+
+    // Player Name
+    els.playerNameInput.addEventListener('input', (e) => {
+        state.playerName = e.target.value;
+        updateNameUI();
+        saveGame();
+    });
+
+    // Minimize Job Section
+    els.minimizeJobBtn.addEventListener('click', () => {
+        els.jobSection.classList.toggle('minimized');
+        els.minimizeJobBtn.textContent = els.jobSection.classList.contains('minimized') ? '+' : '−';
+    });
 }
 
-function attemptLogin() {
-    const key = els.loginInput.value;
-    if (key === '123') {
-        sessionStorage.setItem('landlord_auth', 'true');
-        startGame();
-    } else {
-        showNotification('Invalid Access Key', 'error');
-        els.loginInput.value = '';
-        els.loginInput.focus();
-    }
+function switchTab(tabId) {
+    // Update Nav
+    els.navLinks.forEach(link => {
+        if (link.getAttribute('data-tab') === tabId) {
+            link.classList.add('active');
+        } else {
+            link.classList.remove('active');
+        }
+    });
+
+    // Update Panes
+    els.tabPanes.forEach(pane => {
+        if (pane.id === `tab-${tabId}`) {
+            pane.classList.add('active');
+        } else {
+            pane.classList.remove('active');
+        }
+    });
+}
+
+function resetGame() {
+    localStorage.removeItem(SAVE_KEY);
+    location.reload();
 }
 
 function startGame() {
-    els.loginOverlay.classList.add('hidden');
     loadGame();
-    renderMarket();
-    renderStocks();
+    renderAllCategories();
     updateUI();
+    updateJobUI();
+    updateNameUI();
+    updateTimeUI();
+    updateHealthUI();
+    updateChart();
     startGameLoop();
+    startAutoSave();
 }
 
 function startGameLoop() {
     setInterval(() => {
+        // Time Progress
+        state.day++;
+        updateTimeUI();
+
+        // Income
         const income = calculateTotalIncome();
         if (income > 0) {
             addMoney(income);
-            // Optional: Visual feedback for income could go here
         }
+
+        // Chart Update
+        updateHistory();
+        updateChart();
+
     }, GAME_TICK_RATE);
+}
+
+function startAutoSave() {
+    setInterval(() => {
+        saveGame();
+    }, AUTO_SAVE_INTERVAL);
+}
+
+function calculateJobIncome() {
+    const hours = state.job.type === 'full-time' ? 8 : 4;
+    return state.job.wage * hours;
 }
 
 function calculateTotalIncome() {
     let total = 0;
-    // Property Income
-    for (const [id, count] of Object.entries(state.properties)) {
-        const prop = PROPERTY_TYPES.find(p => p.id === id);
-        if (prop) {
-            total += prop.income * count;
+
+    // Asset Income
+    for (const [key, info] of Object.entries(CATEGORIES)) {
+        const stateObj = state[key];
+        if (!stateObj) continue;
+
+        for (const [id, count] of Object.entries(stateObj)) {
+            const item = info.data.find(i => i.id === id);
+            if (item) {
+                total += item.income * count;
+            }
         }
     }
-    // Stock Dividends
-    for (const [id, count] of Object.entries(state.stocks)) {
-        const stock = STOCK_TYPES.find(s => s.id === id);
-        if (stock) {
-            total += stock.income * count;
-        }
-    }
+
+    // Job Income
+    total += calculateJobIncome();
+
     return total;
 }
 
@@ -117,18 +265,21 @@ function addMoney(amount) {
     updateUI();
 }
 
-function buyProperty(propertyId) {
-    const prop = PROPERTY_TYPES.find(p => p.id === propertyId);
-    if (!prop) return;
+function buyItem(categoryKey, itemId) {
+    const info = CATEGORIES[categoryKey];
+    const item = info.data.find(i => i.id === itemId);
+    if (!item) return;
 
-    if (state.money >= prop.cost) {
-        state.money -= prop.cost;
-        state.properties[propertyId] = (state.properties[propertyId] || 0) + 1;
+    if (state.money >= item.cost) {
+        state.money -= item.cost;
 
-        // Increase cost slightly for next purchase (optional mechanic, keeping simple for now)
-        // prop.cost = Math.ceil(prop.cost * 1.1); 
+        // Initialize category object if missing (safety check)
+        if (!state[categoryKey]) state[categoryKey] = {};
 
-        showNotification(`Purchased ${prop.name}!`);
+        state[categoryKey][itemId] = (state[categoryKey][itemId] || 0) + 1;
+
+        showNotification(`Purchased ${item.name}!`);
+        playCelebrationAnimation();
         updateUI();
         saveGame();
     } else {
@@ -136,19 +287,93 @@ function buyProperty(propertyId) {
     }
 }
 
-function buyStock(stockId) {
-    const stock = STOCK_TYPES.find(s => s.id === stockId);
-    if (!stock) return;
+// --- Chart Logic ---
 
-    if (state.money >= stock.cost) {
-        state.money -= stock.cost;
-        state.stocks[stockId] = (state.stocks[stockId] || 0) + 1;
-        showNotification(`Invested in ${stock.name}!`);
-        updateUI();
-        saveGame();
-    } else {
-        showNotification("Not enough funds!", "error");
+function initChart() {
+    const ctx = els.growthChartCanvas.getContext('2d');
+
+    // Gradient for the line
+    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+    gradient.addColorStop(0, 'rgba(56, 189, 248, 0.5)');
+    gradient.addColorStop(1, 'rgba(56, 189, 248, 0)');
+
+    growthChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Net Worth',
+                data: [],
+                borderColor: '#38bdf8',
+                backgroundColor: gradient,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    titleColor: '#94a3b8',
+                    bodyColor: '#f8fafc',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: { display: false },
+                y: {
+                    display: false, // Hide Y axis for cleaner look
+                    beginAtZero: true
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            }
+        }
+    });
+}
+
+function updateHistory() {
+    // Calculate Net Worth (Money + Asset Value)
+    let netWorth = state.money;
+    for (const [key, info] of Object.entries(CATEGORIES)) {
+        const stateObj = state[key];
+        if (!stateObj) continue;
+        for (const [id, count] of Object.entries(stateObj)) {
+            const item = info.data.find(i => i.id === id);
+            if (item) {
+                netWorth += item.cost * count;
+            }
+        }
     }
+
+    state.history.push({ day: state.day, value: netWorth });
+
+    // Keep history manageable (e.g., last 50 points for display)
+    // We store all history in state for now, but could trim if needed.
+    // For the chart, we might want to show all or a window.
+}
+
+function updateChart() {
+    if (!growthChart) return;
+
+    // Optimize: only take last 50 points if array is huge
+    const dataPoints = state.history.slice(-50);
+
+    growthChart.data.labels = dataPoints.map(p => `Day ${p.day}`);
+    growthChart.data.datasets[0].data = dataPoints.map(p => p.value);
+    growthChart.update('none'); // 'none' mode for performance
 }
 
 // --- UI Functions ---
@@ -157,107 +382,149 @@ function formatMoney(amount) {
     return '$' + amount.toLocaleString();
 }
 
-function renderMarket() {
-    els.marketGrid.innerHTML = '';
-    PROPERTY_TYPES.forEach(prop => {
-        const card = document.createElement('div');
-        card.className = 'property-card';
-        card.onclick = () => buyProperty(prop.id);
-        card.innerHTML = `
-            <div class="card-icon">${prop.icon}</div>
-            <div class="card-title">${prop.name}</div>
-            <div class="card-cost">${formatMoney(prop.cost)}</div>
-            <div class="card-income">+${formatMoney(prop.income)}/s</div>
-        `;
-        els.marketGrid.appendChild(card);
-    });
+function renderAllCategories() {
+    renderCategory(PROPERTY_TYPES, els.marketGrid, 'properties');
+    renderCategory(STOCK_TYPES, els.stockGrid, 'stocks');
+    renderCategory(LAND_TYPES, els.landsGrid, 'lands');
+    renderCategory(CAR_TYPES, els.carGrid, 'cars');
+    renderCategory(HABIT_TYPES, els.habitsGrid, 'habits');
+    renderCategory(SKILL_TYPES, els.skillsGrid, 'skills');
+    renderCategory(GOAL_TYPES, els.goalsGrid, 'goals');
 }
 
-function renderStocks() {
-    els.stockGrid.innerHTML = '';
-    STOCK_TYPES.forEach(stock => {
+function renderCategory(data, container, categoryKey) {
+    if (!container) return;
+    container.innerHTML = '';
+    data.forEach(item => {
         const card = document.createElement('div');
-        card.className = 'property-card stock-card'; // Reuse style for now
-        card.onclick = () => buyStock(stock.id);
+        card.className = 'property-card';
+        card.onclick = () => buyItem(categoryKey, item.id);
         card.innerHTML = `
-            <div class="card-icon">${stock.icon}</div>
-            <div class="card-title">${stock.name}</div>
-            <div class="card-cost">${formatMoney(stock.cost)}</div>
-            <div class="card-income">+${formatMoney(stock.income)}/s</div>
+            <div class="card-icon">${item.icon}</div>
+            <div class="card-title">${item.name}</div>
+            <div class="card-cost">${formatMoney(item.cost)}</div>
+            <div class="card-income">+${formatMoney(item.income)}/day</div>
         `;
-        els.stockGrid.appendChild(card);
+        container.appendChild(card);
     });
 }
 
 function renderPortfolio() {
     els.portfolioList.innerHTML = '';
-    const ownedProps = Object.entries(state.properties);
-    const ownedStocks = Object.entries(state.stocks);
+    let hasAssets = false;
 
-    if (ownedProps.length === 0 && ownedStocks.length === 0) {
-        els.portfolioList.innerHTML = '<div class="empty-state">No assets owned yet. Start investing!</div>';
-        return;
+    for (const [key, info] of Object.entries(CATEGORIES)) {
+        const stateObj = state[key];
+        if (!stateObj) continue;
+
+        const ownedItems = Object.entries(stateObj);
+        if (ownedItems.length > 0) hasAssets = true;
+
+        ownedItems.forEach(([id, count]) => {
+            const item = info.data.find(i => i.id === id);
+            if (!item) return;
+            createPortfolioItem(item, count, info.label);
+        });
     }
 
-    // Render Properties
-    ownedProps.forEach(([id, count]) => {
-        const prop = PROPERTY_TYPES.find(p => p.id === id);
-        if (!prop) return;
-        createPortfolioItem(prop, count, 'Property');
-    });
-
-    // Render Stocks
-    ownedStocks.forEach(([id, count]) => {
-        const stock = STOCK_TYPES.find(s => s.id === id);
-        if (!stock) return;
-        createPortfolioItem(stock, count, 'Stock');
-    });
+    if (!hasAssets) {
+        els.portfolioList.innerHTML = '<div class="empty-state">No assets owned yet. Start investing!</div>';
+    }
 }
 
 function createPortfolioItem(asset, count, type) {
     const item = document.createElement('div');
     item.className = 'portfolio-item';
-    if (type === 'Stock') item.classList.add('stock-item');
 
     item.innerHTML = `
         <div class="item-info">
             <h4>${asset.icon} ${asset.name}</h4>
             <div class="item-count">${type} • Owned: ${count}</div>
         </div>
-        <div class="item-income">+${formatMoney(asset.income * count)}/s</div>
+        <div class="item-income">+${formatMoney(asset.income * count)}/day</div>
     `;
     els.portfolioList.appendChild(item);
 }
 
+function updateNameUI() {
+    els.playerNameDisplay.textContent = state.playerName ? `• ${state.playerName}` : '';
+    if (document.activeElement !== els.playerNameInput) {
+        els.playerNameInput.value = state.playerName || '';
+    }
+}
+
+function updateTimeUI() {
+    const years = Math.floor(state.day / 365) + 1;
+    const days = state.day % 365;
+    els.timeDisplay.textContent = `Year ${years}, Day ${days}`;
+}
+
+function updateHealthUI() {
+    const health = Math.max(40, Math.min(100, state.health));
+    els.healthBar.style.width = `${health}%`;
+    els.healthValue.textContent = `${health}%`;
+
+    // Dynamic color
+    if (health < 50) {
+        els.healthBar.style.background = '#ef4444'; // Red
+    } else if (health < 80) {
+        els.healthBar.style.background = '#f59e0b'; // Orange
+    } else {
+        els.healthBar.style.background = '#22c55e'; // Green
+    }
+}
+
+function updateJobUI() {
+    // Update Wage Input
+    if (document.activeElement !== els.wageInput) {
+        els.wageInput.value = state.job.wage || '';
+    }
+
+    // Update Type Buttons
+    els.jobBtns.forEach(btn => {
+        if (btn.getAttribute('data-type') === state.job.type) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // Update Salary Display
+    els.dailySalary.textContent = formatMoney(calculateJobIncome());
+
+    // Trigger main UI update to reflect income change
+    updateUI();
+}
+
 function updateUI() {
     els.balance.textContent = formatMoney(state.money);
-    els.income.textContent = '+' + formatMoney(calculateTotalIncome()) + '/s';
+    els.income.textContent = '+' + formatMoney(calculateTotalIncome()) + '/day';
 
-    // Update Property button states
-    const propCards = els.marketGrid.querySelectorAll('.property-card');
-    PROPERTY_TYPES.forEach((prop, index) => {
-        if (propCards[index]) {
-            if (state.money < prop.cost) {
-                propCards[index].classList.add('disabled');
-            } else {
-                propCards[index].classList.remove('disabled');
-            }
-        }
-    });
-
-    // Update Stock button states
-    const stockCards = els.stockGrid.querySelectorAll('.property-card');
-    STOCK_TYPES.forEach((stock, index) => {
-        if (stockCards[index]) {
-            if (state.money < stock.cost) {
-                stockCards[index].classList.add('disabled');
-            } else {
-                stockCards[index].classList.remove('disabled');
-            }
-        }
-    });
+    // Update button states for all grids
+    // This is a bit heavy to do every tick/update, but fine for this scale
+    updateGridButtons(els.marketGrid, PROPERTY_TYPES);
+    updateGridButtons(els.stockGrid, STOCK_TYPES);
+    updateGridButtons(els.landsGrid, LAND_TYPES);
+    updateGridButtons(els.carGrid, CAR_TYPES);
+    updateGridButtons(els.habitsGrid, HABIT_TYPES);
+    updateGridButtons(els.skillsGrid, SKILL_TYPES);
+    updateGridButtons(els.goalsGrid, GOAL_TYPES);
 
     renderPortfolio();
+}
+
+function updateGridButtons(container, data) {
+    if (!container) return;
+    const cards = container.querySelectorAll('.property-card');
+    data.forEach((item, index) => {
+        if (cards[index]) {
+            if (state.money < item.cost) {
+                cards[index].classList.add('disabled');
+            } else {
+                cards[index].classList.remove('disabled');
+            }
+        }
+    });
 }
 
 function showNotification(message, type = 'success') {
@@ -273,6 +540,25 @@ function showNotification(message, type = 'success') {
     }, 3000);
 }
 
+function playCelebrationAnimation() {
+    const colors = ['#fbbf24', '#38bdf8', '#4ade80', '#f472b6', '#a78bfa'];
+
+    for (let i = 0; i < 50; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + 'vw';
+        confetti.style.top = -10 + 'px';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.animationDuration = (Math.random() * 2 + 1) + 's';
+
+        document.body.appendChild(confetti);
+
+        setTimeout(() => {
+            confetti.remove();
+        }, 3000);
+    }
+}
+
 // --- Persistence ---
 
 function saveGame() {
@@ -284,9 +570,19 @@ function loadGame() {
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
-            // Merge with initial state to handle new fields (like stocks) if loading old save
             state = { ...initialState, ...parsed };
-            if (!state.stocks) state.stocks = {};
+
+            // Ensure all category objects exist
+            Object.keys(CATEGORIES).forEach(key => {
+                if (!state[key]) state[key] = {};
+            });
+            // Ensure job object exists
+            if (!state.job) state.job = { wage: 0, type: 'full-time' };
+            if (!state.history) state.history = [];
+            if (!state.day) state.day = 1;
+            if (!state.health) state.health = 50;
+            if (!state.playerName) state.playerName = '';
+
         } catch (e) {
             console.error("Failed to load save", e);
         }
