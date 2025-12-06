@@ -1,6 +1,6 @@
 // Game Configuration
-const GAME_TICK_RATE = 1000; // 1 second (1 day)
-const SAVE_KEY = 'landlord_tycoon_save_v6'; // Bump version for new features
+const GAME_TICK_RATE = 2500; // 2.5 seconds (1 day)
+const SAVE_KEY = 'landlord_tycoon_save_v7'; // Bump version for activity log
 const AUTO_SAVE_INTERVAL = 30000; // 30 seconds
 
 // Initial Game State
@@ -8,8 +8,9 @@ const initialState = {
     money: 10000,
     playerName: '',
     day: 1,
-    health: 50,
+    health: 48000,
     history: [], // Array of { day, value }
+    activityLog: {}, // { 'YYYY-MM-DD': true }
     job: { wage: 0, type: 'full-time' }, // { wage: number, type: 'full-time' | 'part-time' }
     properties: {}, // { id: count }
     stocks: {}, // { id: count }
@@ -83,6 +84,7 @@ const CATEGORIES = {
 // Runtime State
 let state = { ...initialState };
 let growthChart = null;
+let currentChartRange = '30'; // 30, 180, 365, or 'all'
 
 // DOM Elements
 const els = {
@@ -110,18 +112,75 @@ const els = {
     healthValue: document.getElementById('health-value'),
     jobSection: document.getElementById('job-section'),
     minimizeJobBtn: document.getElementById('minimize-job-btn'),
-    growthChartCanvas: document.getElementById('growthChart')
+    growthChartCanvas: document.getElementById('growthChart'),
+    themeRadios: document.querySelectorAll('input[name="theme"]'),
+    chartBtns: document.querySelectorAll('.chart-btn'),
+    activityHeatmap: document.getElementById('activity-heatmap'),
+    portfolioSection: document.getElementById('portfolio-section'),
+    minimizePortfolioBtn: document.getElementById('minimize-portfolio-btn'),
+    healthTrigger: document.getElementById('health-trigger'),
+    healthMenu: document.getElementById('health-menu'),
+    closeHealthMenu: document.getElementById('close-health-menu')
 };
 
 // --- Core Logic ---
 
 function init() {
     setupEventListeners();
+    initTheme();
     initChart();
     startGame();
 }
 
+function initTheme() {
+    const savedTheme = localStorage.getItem('landlord_tycoon_theme') || 'default';
+    setTheme(savedTheme);
+
+    els.themeRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            setTheme(e.target.value);
+        });
+    });
+}
+
+function setTheme(theme) {
+    document.body.setAttribute('data-theme', theme);
+    const radio = document.querySelector(`input[name="theme"][value="${theme}"]`);
+    if (radio) radio.checked = true;
+    localStorage.setItem('landlord_tycoon_theme', theme);
+}
+
 function setupEventListeners() {
+    // Balance Toggle (Focus Mode)
+    const balanceContainer = document.getElementById('balance-container');
+    const mainNav = document.getElementById('main-nav');
+    const gameLayout = document.querySelector('.game-layout');
+
+    if (balanceContainer) {
+        balanceContainer.addEventListener('click', () => {
+            if (mainNav) mainNav.classList.toggle('hidden-tabs');
+            if (gameLayout) gameLayout.classList.toggle('hidden-tabs');
+        });
+    }
+
+    // Health Menu Toggle
+    if (els.healthTrigger && els.healthMenu) {
+        els.healthTrigger.addEventListener('click', () => {
+            els.healthMenu.classList.add('visible');
+        });
+
+        els.closeHealthMenu.addEventListener('click', () => {
+            els.healthMenu.classList.remove('visible');
+        });
+
+        // Close on outside click
+        els.healthMenu.addEventListener('click', (e) => {
+            if (e.target === els.healthMenu) {
+                els.healthMenu.classList.remove('visible');
+            }
+        });
+    }
+
     // Tab Switching
     els.navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
@@ -168,6 +227,25 @@ function setupEventListeners() {
         els.jobSection.classList.toggle('minimized');
         els.minimizeJobBtn.textContent = els.jobSection.classList.contains('minimized') ? '+' : '−';
     });
+
+    // Minimize Portfolio Section
+    els.minimizePortfolioBtn.addEventListener('click', () => {
+        els.portfolioSection.classList.toggle('minimized');
+        els.minimizePortfolioBtn.textContent = els.portfolioSection.classList.contains('minimized') ? '+' : '−';
+    });
+
+    // Chart Controls
+    els.chartBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentChartRange = btn.getAttribute('data-range');
+
+            // Update UI
+            els.chartBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            updateChart();
+        });
+    });
 }
 
 function switchTab(tabId) {
@@ -197,6 +275,7 @@ function resetGame() {
 
 function startGame() {
     loadGame();
+    logActivity(); // Log today's activity
     renderAllCategories();
     updateUI();
     updateJobUI();
@@ -204,6 +283,7 @@ function startGame() {
     updateTimeUI();
     updateHealthUI();
     updateChart();
+    renderHeatmap();
     startGameLoop();
     startAutoSave();
 }
@@ -213,6 +293,7 @@ function startGameLoop() {
         // Time Progress
         state.day++;
         updateTimeUI();
+        logActivity(); // Log activity for the new day
 
         // Income
         const income = calculateTotalIncome();
@@ -248,7 +329,7 @@ function calculateTotalIncome() {
 
         for (const [id, count] of Object.entries(stateObj)) {
             const item = info.data.find(i => i.id === id);
-            if (item) {
+            if (item && item.income) {
                 total += item.income * count;
             }
         }
@@ -278,7 +359,7 @@ function buyItem(categoryKey, itemId) {
 
         state[categoryKey][itemId] = (state[categoryKey][itemId] || 0) + 1;
 
-        showNotification(`Purchased ${item.name}!`);
+        showNotification(`Purchased ${item.name} !`);
         playCelebrationAnimation();
         updateUI();
         saveGame();
@@ -376,6 +457,46 @@ function updateChart() {
     growthChart.update('none'); // 'none' mode for performance
 }
 
+// --- Activity Heatmap Logic ---
+
+function logActivity() {
+    const today = new Date().toISOString().split('T')[0];
+    state.activityLog[today] = true;
+    saveGame();
+    renderHeatmap(); // Re-render heatmap after logging activity
+}
+
+function renderHeatmap() {
+    const container = els.activityHeatmap;
+    if (!container) return;
+    container.innerHTML = '';
+
+    // Generate dates for the specific grid (e.g., last 84 days = 12 weeks * 7 days)
+    const totalDays = 84;
+    const today = new Date();
+
+    // Create array of dates in reverse order (newest last)
+    const dates = [];
+    for (let i = totalDays - 1; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        dates.push(d.toISOString().split('T')[0]);
+    }
+
+    dates.forEach(dateStr => {
+        const cell = document.createElement('div');
+        cell.className = 'heatmap-cell';
+        cell.setAttribute('data-date', dateStr);
+
+        if (state.activityLog[dateStr]) {
+            cell.classList.add('active');
+        }
+
+        container.appendChild(cell);
+    });
+}
+
+
 // --- UI Functions ---
 
 function formatMoney(amount) {
@@ -399,11 +520,16 @@ function renderCategory(data, container, categoryKey) {
         const card = document.createElement('div');
         card.className = 'property-card';
         card.onclick = () => buyItem(categoryKey, item.id);
+
+        let effectHtml = '';
+        // All items now have income, so simplify this
+        effectHtml = `<div class="card-income">+${formatMoney(item.income)}/day</div>`;
+
         card.innerHTML = `
             <div class="card-icon">${item.icon}</div>
             <div class="card-title">${item.name}</div>
             <div class="card-cost">${formatMoney(item.cost)}</div>
-            <div class="card-income">+${formatMoney(item.income)}/day</div>
+            ${effectHtml}
         `;
         container.appendChild(card);
     });
@@ -436,12 +562,15 @@ function createPortfolioItem(asset, count, type) {
     const item = document.createElement('div');
     item.className = 'portfolio-item';
 
+    // All items now have income, so simplify this
+    let effectHtml = `<div class="item-income">+${formatMoney(asset.income * count)}/day</div>`;
+
     item.innerHTML = `
         <div class="item-info">
             <h4>${asset.icon} ${asset.name}</h4>
             <div class="item-count">${type} • Owned: ${count}</div>
         </div>
-        <div class="item-income">+${formatMoney(asset.income * count)}/day</div>
+        ${effectHtml}
     `;
     els.portfolioList.appendChild(item);
 }
@@ -460,14 +589,17 @@ function updateTimeUI() {
 }
 
 function updateHealthUI() {
-    const health = Math.max(40, Math.min(100, state.health));
-    els.healthBar.style.width = `${health}%`;
-    els.healthValue.textContent = `${health}%`;
+    const maxHealth = 100000;
+    const health = Math.max(0, Math.min(maxHealth, state.health));
+    const percentage = (health / maxHealth) * 100;
+
+    els.healthBar.style.width = `${percentage}%`;
+    els.healthValue.textContent = `${health} / ${maxHealth}`;
 
     // Dynamic color
-    if (health < 50) {
+    if (percentage < 50) {
         els.healthBar.style.background = '#ef4444'; // Red
-    } else if (health < 80) {
+    } else if (percentage < 80) {
         els.healthBar.style.background = '#f59e0b'; // Orange
     } else {
         els.healthBar.style.background = '#22c55e'; // Green
@@ -500,29 +632,32 @@ function updateUI() {
     els.balance.textContent = formatMoney(state.money);
     els.income.textContent = '+' + formatMoney(calculateTotalIncome()) + '/day';
 
-    // Update button states for all grids
-    // This is a bit heavy to do every tick/update, but fine for this scale
-    updateGridButtons(els.marketGrid, PROPERTY_TYPES);
-    updateGridButtons(els.stockGrid, STOCK_TYPES);
-    updateGridButtons(els.landsGrid, LAND_TYPES);
-    updateGridButtons(els.carGrid, CAR_TYPES);
-    updateGridButtons(els.habitsGrid, HABIT_TYPES);
-    updateGridButtons(els.skillsGrid, SKILL_TYPES);
-    updateGridButtons(els.goalsGrid, GOAL_TYPES);
-
     renderPortfolio();
+
+    // Update button states
+    updateGridButtons(els.marketGrid, PROPERTY_TYPES, 'properties');
+    updateGridButtons(els.stockGrid, STOCK_TYPES, 'stocks');
+    updateGridButtons(els.landsGrid, LAND_TYPES, 'lands');
+    updateGridButtons(els.carGrid, CAR_TYPES, 'cars');
+    updateGridButtons(els.habitsGrid, HABIT_TYPES, 'habits');
+    updateGridButtons(els.skillsGrid, SKILL_TYPES, 'skills');
+    updateGridButtons(els.goalsGrid, GOAL_TYPES, 'goals');
 }
 
-function updateGridButtons(container, data) {
+function updateGridButtons(container, data, categoryKey) {
     if (!container) return;
     const cards = container.querySelectorAll('.property-card');
     data.forEach((item, index) => {
         if (cards[index]) {
+            const costEl = cards[index].querySelector('.card-cost');
+            // No special case for habits anymore, all items can be bought multiple times
             if (state.money < item.cost) {
                 cards[index].classList.add('disabled');
             } else {
                 cards[index].classList.remove('disabled');
             }
+            // Restore cost text
+            if (costEl) costEl.textContent = formatMoney(item.cost);
         }
     });
 }
@@ -582,6 +717,7 @@ function loadGame() {
             if (!state.day) state.day = 1;
             if (!state.health) state.health = 50;
             if (!state.playerName) state.playerName = '';
+            if (!state.activityLog) state.activityLog = {};
 
         } catch (e) {
             console.error("Failed to load save", e);

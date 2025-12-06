@@ -22,21 +22,31 @@
                 </div>
                 <div class="header-controls">
                     <div class="time-display" id="time-display">Year 1, Day 1</div>
+                    <div class="theme-selector">
+                        <label title="Default"><input type="radio" name="theme" value="default" checked>
+                            <span>Default</span></label>
+                        <label title="Pinky"><input type="radio" name="theme" value="pinky"> <span>Pinky</span></label>
+                        <label title="Greeny"><input type="radio" name="theme" value="greeny">
+                            <span>Greeny</span></label>
+                        <label title="Dark"><input type="radio" name="theme" value="dark"> <span>Dark</span></label>
+                        <label title="Cloudy"><input type="radio" name="theme" value="cloudy">
+                            <span>Cloudy</span></label>
+                    </div>
                     <button id="reset-btn" class="reset-btn">Reset Game</button>
                 </div>
             </div>
 
             <div class="status-dashboard">
-                <div class="health-container">
+                <div class="health-container clickable" id="health-trigger" title="Click to open Health Menu">
                     <div class="health-label">Health</div>
                     <div class="health-bar-bg">
-                        <div class="health-bar-fill" id="health-bar" style="width: 50%;"></div>
+                        <div class="health-bar-fill" id="health-bar" style="width: 48%;"></div>
                     </div>
-                    <div class="health-value" id="health-value">50%</div>
+                    <div class="health-value" id="health-value">48000 / 100000</div>
                 </div>
 
                 <div class="stats-bar">
-                    <div class="stat-item">
+                    <div class="stat-item clickable" id="balance-container" title="Click to focus mode">
                         <span class="label">Balance</span>
                         <span class="value" id="balance">$0</span>
                     </div>
@@ -47,15 +57,12 @@
                 </div>
             </div>
 
-            <nav class="main-nav">
+            <nav class="main-nav" id="main-nav">
                 <ul>
                     <li><a href="#" class="nav-link active" data-tab="real-estate">Real Estate</a></li>
                     <li><a href="#" class="nav-link" data-tab="stock">Stock</a></li>
                     <li><a href="#" class="nav-link" data-tab="lands">Lands</a></li>
                     <li><a href="#" class="nav-link" data-tab="car">Car</a></li>
-                    <li><a href="#" class="nav-link" data-tab="habits">Habits</a></li>
-                    <li><a href="#" class="nav-link" data-tab="skills">Skills</a></li>
-                    <li><a href="#" class="nav-link" data-tab="goals">Goals</a></li>
                 </ul>
             </nav>
         </header>
@@ -97,31 +104,34 @@
                         <div class="property-grid" id="car-grid"></div>
                     </section>
                 </div>
-
-                <!-- Habits Tab -->
-                <div id="tab-habits" class="tab-pane">
-                    <section class="panel">
-                        <h2>Good Habits</h2>
-                        <div class="property-grid" id="habits-grid"></div>
-                    </section>
-                </div>
-
-                <!-- Skills Tab -->
-                <div id="tab-skills" class="tab-pane">
-                    <section class="panel">
-                        <h2>Skills & Education</h2>
-                        <div class="property-grid" id="skills-grid"></div>
-                    </section>
-                </div>
-
-                <!-- Goals Tab -->
-                <div id="tab-goals" class="tab-pane">
-                    <section class="panel">
-                        <h2>Life Goals</h2>
-                        <div class="property-grid" id="goals-grid"></div>
-                    </section>
-                </div>
             </main>
+
+            <!-- Health Menu Overlay -->
+            <div id="health-menu" class="health-menu hidden">
+                <div class="health-menu-content">
+                    <div class="menu-header">
+                        <h2>Personal Development</h2>
+                        <button class="close-btn" id="close-health-menu">×</button>
+                    </div>
+
+                    <div class="health-tables">
+                        <section class="panel">
+                            <h3>Good Habits</h3>
+                            <div class="property-grid compact" id="habits-grid"></div>
+                        </section>
+
+                        <section class="panel">
+                            <h3>Skills & Education</h3>
+                            <div class="property-grid compact" id="skills-grid"></div>
+                        </section>
+
+                        <section class="panel">
+                            <h3>Life Goals</h3>
+                            <div class="property-grid compact" id="goals-grid"></div>
+                        </section>
+                    </div>
+                </div>
+            </div>
 
             <aside class="persistent-portfolio">
                 <section class="panel job-section" id="job-section">
@@ -148,13 +158,33 @@
                     </div>
                 </section>
 
-                <section class="panel my-portfolio">
-                    <h2>My Portfolio</h2>
-                    <div class="chart-container">
-                        <canvas id="growthChart"></canvas>
+                <section class="panel my-portfolio" id="portfolio-section">
+                    <div class="panel-header">
+                        <h2>My Portfolio</h2>
+                        <button class="minimize-btn" id="minimize-portfolio-btn">−</button>
                     </div>
-                    <div class="portfolio-list" id="portfolio-list">
-                        <div class="empty-state">No assets owned yet. Start investing!</div>
+                    <div id="portfolio-content">
+                        <div class="chart-container">
+                            <canvas id="growthChart"></canvas>
+                        </div>
+                        <div class="chart-controls">
+                            <button class="chart-btn" data-range="30">30D</button>
+                            <button class="chart-btn" data-range="180">6M</button>
+                            <button class="chart-btn active" data-range="365">1Y</button>
+                            <button class="chart-btn" data-range="all">All</button>
+                        </div>
+                        <div class="portfolio-list" id="portfolio-list">
+                            <div class="empty-state">No assets owned yet. Start investing!</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel activity-section">
+                    <h2>Activity Log</h2>
+                    <div class="heatmap-container">
+                        <div class="heatmap-grid" id="activity-heatmap">
+                            <!-- Injected by JS -->
+                        </div>
                     </div>
                 </section>
             </aside>
