@@ -81,6 +81,15 @@ const CATEGORIES = {
     'goals': { data: GOAL_TYPES, label: 'Goal' }
 };
 
+const THEME_ANIMATIONS = {
+    'pinky': ['❤️', '💖', '💗', '💕', '💓'],
+    'greeny': ['🍃', '🌿', '🌱', '🍀', '🌵'],
+    'dark': ['⭐', '✨', '💫', '🌟', '🌙'],
+    'cloudy': ['❄️', '🌨️', '⚪', '☁️', '🌫️']
+};
+
+let animationInterval = null;
+
 // Runtime State
 let state = { ...initialState };
 let growthChart = null;
@@ -148,6 +157,82 @@ function setTheme(theme) {
     const radio = document.querySelector(`input[name="theme"][value="${theme}"]`);
     if (radio) radio.checked = true;
     localStorage.setItem('landlord_tycoon_theme', theme);
+
+    updateBackgroundAnimation(theme);
+}
+
+function updateBackgroundAnimation(theme) {
+    stopAnimation();
+
+    const particles = THEME_ANIMATIONS[theme];
+    if (particles) {
+        startAnimation(particles);
+    }
+}
+
+function startAnimation(particles) {
+    // Create initial batch so we don't wait for interval
+    for (let i = 0; i < 15; i++) {
+        createParticle(particles, true);
+    }
+
+    animationInterval = setInterval(() => {
+        createParticle(particles);
+    }, 400); // New particle every 400ms
+}
+
+function stopAnimation() {
+    if (animationInterval) {
+        clearInterval(animationInterval);
+        animationInterval = null;
+    }
+    document.querySelectorAll('.bg-particle').forEach(el => el.remove());
+}
+
+function createParticle(particles, randomTop = false) {
+    const particle = document.createElement('div');
+    particle.className = 'bg-particle';
+    particle.textContent = particles[Math.floor(Math.random() * particles.length)];
+
+    // Random Position
+    particle.style.left = Math.random() * 100 + 'vw';
+
+    // If randomTop is true, start from random vertical position (for initial fill)
+    // Otherwise start from top (-50px per CSS)
+    if (randomTop) {
+        particle.style.top = Math.random() * 100 + 'vh';
+        // If starting in middle, we need to manually set animation duration/delay to make it look right?
+        // Actually, CSS animation 'top' from -50px might conflict if we set top here.
+        // Let's rely on CSS for movement. If we set top, the animation start point changes.
+        // If we want them to *appear* scattered, we can just set top and NOT use the animation for the initial ones?
+        // Or just let them fall from top. Simplest is creating them at top.
+        // Let's skip randomTop logic complexity for now to ensure smooth fall behavior.
+        // Instead, just loop fall.
+        // Let's reset top to undefined so CSS takes over?
+        // Wait, if I want immediate screen fill, I'd need to simulate they fell already.
+        // That's complex with CSS animations.
+        // Alternative: Start them at random 'animation-delay' negative values?
+        // animation-delay: -5s; -> starts 5s into the animation
+
+        const duration = Math.random() * 5 + 5; // 5-10s
+        particle.style.animationDuration = duration + 's';
+        particle.style.animationDelay = '-' + (Math.random() * duration) + 's';
+    } else {
+        particle.style.animationDuration = (Math.random() * 5 + 5) + 's'; // 5-10s fall
+    }
+
+    // Random Size
+    const size = Math.random() * 1.5 + 1; // 1rem to 2.5rem
+    particle.style.fontSize = size + 'rem';
+
+    document.body.appendChild(particle);
+
+    // Cleanup
+    // Duration + small buffer
+    const maxTime = 15000; // 15s max
+    setTimeout(() => {
+        if (particle.parentNode) particle.remove();
+    }, maxTime);
 }
 
 function setupEventListeners() {
