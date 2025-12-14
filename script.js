@@ -8,17 +8,12 @@ const initialState = {
     money: 10000,
     playerName: '',
     day: 1,
-    health: 48000,
-    history: [], // Array of { day, value }
-    activityLog: {}, // { 'YYYY-MM-DD': true }
-    job: { wage: 0, type: 'full-time' }, // { wage: number, type: 'full-time' | 'part-time' }
+    jobs: { wage: 0, type: 'full-time' }, // { wage: number, type: 'full-time' | 'part-time' }
     properties: {}, // { id: count }
     stocks: {}, // { id: count }
     lands: {},
     cars: {},
-    habits: {},
-    skills: {},
-    goals: {}
+    expenses: {} // { id: count }
 };
 
 // --- Data Definitions ---
@@ -52,23 +47,15 @@ const CAR_TYPES = [
     { id: 'yacht', name: 'Super Yacht', cost: 2000000, income: 10000, icon: '🛥️' }
 ];
 
-const HABIT_TYPES = [
-    { id: 'reading', name: 'Reading', cost: 50, income: 1, icon: '📚' },
-    { id: 'gym', name: 'Gym', cost: 200, income: 5, icon: '💪' },
-    { id: 'meditation', name: 'Meditation', cost: 100, income: 3, icon: '🧘' }
+const EXPENSE_TYPES = [
+    { id: 'tax', name: 'Tax Advisor', cost: 1000, expense: 50, icon: '📉' },
+    { id: 'manager', name: 'Property Manager', cost: 5000, expense: 200, icon: '👩‍💼' },
+    { id: 'security', name: 'Security Detail', cost: 15000, expense: 800, icon: '🛡️' },
+    { id: 'club', name: 'Country Club', cost: 50000, expense: 2500, icon: '⛳' }
 ];
 
-const SKILL_TYPES = [
-    { id: 'coding', name: 'Coding', cost: 1000, income: 20, icon: '💻' },
-    { id: 'marketing', name: 'Marketing', cost: 3000, income: 70, icon: '📈' },
-    { id: 'negotiation', name: 'Negotiation', cost: 8000, income: 200, icon: '🤝' }
-];
+// Habits, Skills, Goals sections removed as they were part of Health
 
-const GOAL_TYPES = [
-    { id: 'travel', name: 'World Travel', cost: 10000, income: 50, icon: '✈️' },
-    { id: 'charity', name: 'Start Charity', cost: 50000, income: 300, icon: '❤️' },
-    { id: 'legacy', name: 'Build Legacy', cost: 1000000, income: 5000, icon: '🏛️' }
-];
 
 // Map category names to their data and state keys
 const CATEGORIES = {
@@ -76,9 +63,7 @@ const CATEGORIES = {
     'stocks': { data: STOCK_TYPES, label: 'Stock' },
     'lands': { data: LAND_TYPES, label: 'Land' },
     'cars': { data: CAR_TYPES, label: 'Car' },
-    'habits': { data: HABIT_TYPES, label: 'Habit' },
-    'skills': { data: SKILL_TYPES, label: 'Skill' },
-    'goals': { data: GOAL_TYPES, label: 'Goal' }
+    'expenses': { data: EXPENSE_TYPES, label: 'Expense' }
 };
 
 const THEME_ANIMATIONS = {
@@ -99,13 +84,13 @@ let currentChartRange = '30'; // 30, 180, 365, or 'all'
 const els = {
     balance: document.getElementById('balance'),
     income: document.getElementById('income'),
+    expense: document.getElementById('expense'),
     marketGrid: document.getElementById('market-grid'),
     stockGrid: document.getElementById('stock-grid'),
     landsGrid: document.getElementById('lands-grid'),
+    landsGrid: document.getElementById('lands-grid'),
     carGrid: document.getElementById('car-grid'),
-    habitsGrid: document.getElementById('habits-grid'),
-    skillsGrid: document.getElementById('skills-grid'),
-    goalsGrid: document.getElementById('goals-grid'),
+    expenseGrid: document.getElementById('expense-grid'),
     portfolioList: document.getElementById('portfolio-list'),
     notificationArea: document.getElementById('notification-area'),
     resetBtn: document.getElementById('reset-btn'),
@@ -117,8 +102,6 @@ const els = {
     playerNameInput: document.getElementById('player-name-input'),
     playerNameDisplay: document.getElementById('player-name-display'),
     timeDisplay: document.getElementById('time-display'),
-    healthBar: document.getElementById('health-bar'),
-    healthValue: document.getElementById('health-value'),
     jobSection: document.getElementById('job-section'),
     minimizeJobBtn: document.getElementById('minimize-job-btn'),
     growthChartCanvas: document.getElementById('growthChart'),
@@ -126,10 +109,7 @@ const els = {
     chartBtns: document.querySelectorAll('.chart-btn'),
     activityHeatmap: document.getElementById('activity-heatmap'),
     portfolioSection: document.getElementById('portfolio-section'),
-    minimizePortfolioBtn: document.getElementById('minimize-portfolio-btn'),
-    healthTrigger: document.getElementById('health-trigger'),
-    healthMenu: document.getElementById('health-menu'),
-    closeHealthMenu: document.getElementById('close-health-menu')
+    minimizePortfolioBtn: document.getElementById('minimize-portfolio-btn')
 };
 
 // --- Core Logic ---
@@ -248,24 +228,6 @@ function setupEventListeners() {
         });
     }
 
-    // Health Menu Toggle
-    if (els.healthTrigger && els.healthMenu) {
-        els.healthTrigger.addEventListener('click', () => {
-            els.healthMenu.classList.add('visible');
-        });
-
-        els.closeHealthMenu.addEventListener('click', () => {
-            els.healthMenu.classList.remove('visible');
-        });
-
-        // Close on outside click
-        els.healthMenu.addEventListener('click', (e) => {
-            if (e.target === els.healthMenu) {
-                els.healthMenu.classList.remove('visible');
-            }
-        });
-    }
-
     // Tab Switching
     els.navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
@@ -307,17 +269,28 @@ function setupEventListeners() {
         saveGame();
     });
 
-    // Minimize Job Section
-    els.minimizeJobBtn.addEventListener('click', () => {
-        els.jobSection.classList.toggle('minimized');
-        els.minimizeJobBtn.textContent = els.jobSection.classList.contains('minimized') ? '+' : '−';
+    // Generic Minimize Logic
+    document.querySelectorAll('.minimize-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const btn = e.target;
+            const panel = btn.closest('.panel');
+            // If data-target exists, use it (for keeping old logic if needed, but here we can just target parent)
+            // Or better, just toggle closest panel class.
+
+            // The new buttons are inside .panel-header, which is inside .panel.
+            // The job one has ID interaction, but we can make it generic too.
+
+            if (panel) {
+                panel.classList.toggle('minimized');
+                btn.textContent = panel.classList.contains('minimized') ? '+' : '−';
+            }
+        });
     });
 
-    // Minimize Portfolio Section
-    els.minimizePortfolioBtn.addEventListener('click', () => {
-        els.portfolioSection.classList.toggle('minimized');
-        els.minimizePortfolioBtn.textContent = els.portfolioSection.classList.contains('minimized') ? '+' : '−';
-    });
+    // Portfolio minimize logic is now covered by the generic one above,
+    // assuming we removed the specific ID listener or let it be redundant.
+    // However, to avoid double toggle, we should remove the specific listeners.
+    // Since I'm replacing the block, I'm removing the specific one.
 
     // Chart Controls
     els.chartBtns.forEach(btn => {
@@ -366,7 +339,7 @@ function startGame() {
     updateJobUI();
     updateNameUI();
     updateTimeUI();
-    updateHealthUI();
+    // updateHealthUI removed
     updateChart();
     renderHeatmap();
     startGameLoop();
@@ -398,6 +371,21 @@ function startAutoSave() {
         saveGame();
     }, AUTO_SAVE_INTERVAL);
 }
+
+function calculateTotalExpense() {
+    let total = 0;
+    const stateObj = state.expenses;
+    if (stateObj) {
+        for (const [id, count] of Object.entries(stateObj)) {
+            const item = EXPENSE_TYPES.find(i => i.id === id);
+            if (item && item.expense) {
+                total += item.expense * count;
+            }
+        }
+    }
+    return total;
+}
+
 
 function calculateJobIncome() {
     const hours = state.job.type === 'full-time' ? 8 : 4;
@@ -593,9 +581,7 @@ function renderAllCategories() {
     renderCategory(STOCK_TYPES, els.stockGrid, 'stocks');
     renderCategory(LAND_TYPES, els.landsGrid, 'lands');
     renderCategory(CAR_TYPES, els.carGrid, 'cars');
-    renderCategory(HABIT_TYPES, els.habitsGrid, 'habits');
-    renderCategory(SKILL_TYPES, els.skillsGrid, 'skills');
-    renderCategory(GOAL_TYPES, els.goalsGrid, 'goals');
+    renderCategory(EXPENSE_TYPES, els.expenseGrid, 'expenses');
 }
 
 function renderCategory(data, container, categoryKey) {
@@ -607,8 +593,11 @@ function renderCategory(data, container, categoryKey) {
         card.onclick = () => buyItem(categoryKey, item.id);
 
         let effectHtml = '';
-        // All items now have income, so simplify this
-        effectHtml = `<div class="card-income">+${formatMoney(item.income)}/day</div>`;
+        if (categoryKey === 'expenses') {
+            effectHtml = `<div class="card-income expense">-${formatMoney(item.expense)}/day</div>`;
+        } else {
+            effectHtml = `<div class="card-income">+${formatMoney(item.income)}/day</div>`;
+        }
 
         card.innerHTML = `
             <div class="card-icon">${item.icon}</div>
@@ -648,7 +637,12 @@ function createPortfolioItem(asset, count, type) {
     item.className = 'portfolio-item';
 
     // All items now have income, so simplify this
-    let effectHtml = `<div class="item-income">+${formatMoney(asset.income * count)}/day</div>`;
+    let effectHtml = '';
+    if (asset.expense) {
+        effectHtml = `<div class="item-income expense">-${formatMoney(asset.expense * count)}/day</div>`;
+    } else {
+        effectHtml = `<div class="item-income">+${formatMoney(asset.income * count)}/day</div>`;
+    }
 
     item.innerHTML = `
         <div class="item-info">
@@ -673,23 +667,8 @@ function updateTimeUI() {
     els.timeDisplay.textContent = `Year ${years}, Day ${days}`;
 }
 
-function updateHealthUI() {
-    const maxHealth = 100000;
-    const health = Math.max(0, Math.min(maxHealth, state.health));
-    const percentage = (health / maxHealth) * 100;
 
-    els.healthBar.style.width = `${percentage}%`;
-    els.healthValue.textContent = `${health} / ${maxHealth}`;
 
-    // Dynamic color
-    if (percentage < 50) {
-        els.healthBar.style.background = '#ef4444'; // Red
-    } else if (percentage < 80) {
-        els.healthBar.style.background = '#f59e0b'; // Orange
-    } else {
-        els.healthBar.style.background = '#22c55e'; // Green
-    }
-}
 
 function updateJobUI() {
     // Update Wage Input
@@ -716,17 +695,16 @@ function updateJobUI() {
 function updateUI() {
     els.balance.textContent = formatMoney(state.money);
     els.income.textContent = '+' + formatMoney(calculateTotalIncome()) + '/day';
+    els.expense.textContent = '-' + formatMoney(calculateTotalExpense()) + '/day';
+
 
     renderPortfolio();
 
     // Update button states
-    updateGridButtons(els.marketGrid, PROPERTY_TYPES, 'properties');
     updateGridButtons(els.stockGrid, STOCK_TYPES, 'stocks');
     updateGridButtons(els.landsGrid, LAND_TYPES, 'lands');
     updateGridButtons(els.carGrid, CAR_TYPES, 'cars');
-    updateGridButtons(els.habitsGrid, HABIT_TYPES, 'habits');
-    updateGridButtons(els.skillsGrid, SKILL_TYPES, 'skills');
-    updateGridButtons(els.goalsGrid, GOAL_TYPES, 'goals');
+    updateGridButtons(els.expenseGrid, EXPENSE_TYPES, 'expenses');
 }
 
 function updateGridButtons(container, data, categoryKey) {
@@ -800,8 +778,10 @@ function loadGame() {
             if (!state.job) state.job = { wage: 0, type: 'full-time' };
             if (!state.history) state.history = [];
             if (!state.day) state.day = 1;
-            if (!state.health) state.health = 50;
+
+            // if (!state.health) state.health = 50; // Removed
             if (!state.playerName) state.playerName = '';
+
             if (!state.activityLog) state.activityLog = {};
 
         } catch (e) {

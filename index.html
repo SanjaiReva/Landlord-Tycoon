@@ -37,13 +37,7 @@
             </div>
 
             <div class="status-dashboard">
-                <div class="health-container clickable" id="health-trigger" title="Click to open Health Menu">
-                    <div class="health-label">Health</div>
-                    <div class="health-bar-bg">
-                        <div class="health-bar-fill" id="health-bar" style="width: 48%;"></div>
-                    </div>
-                    <div class="health-value" id="health-value">48000 / 100000</div>
-                </div>
+                <!-- Health Bar Removed -->
 
                 <div class="stats-bar">
                     <div class="stat-item clickable" id="balance-container" title="Click to focus mode">
@@ -54,109 +48,109 @@
                         <span class="label">Income</span>
                         <span class="value" id="income">+$0/day</span>
                     </div>
+                    <div class="stat-item">
+                        <span class="label">Expense</span>
+                        <span class="value" id="expense">-$0/day</span>
+                    </div>
                 </div>
             </div>
 
             <nav class="main-nav" id="main-nav">
                 <ul>
-                    <li><a href="#" class="nav-link active" data-tab="real-estate">Real Estate</a></li>
-                    <li><a href="#" class="nav-link" data-tab="stock">Stock</a></li>
-                    <li><a href="#" class="nav-link" data-tab="lands">Lands</a></li>
-                    <li><a href="#" class="nav-link" data-tab="car">Car</a></li>
+                    <li><a href="#" class="nav-link active" data-tab="income">Income</a></li>
+                    <li><a href="#" class="nav-link" data-tab="expense">Expense</a></li>
                 </ul>
             </nav>
         </header>
 
         <div class="game-layout">
             <main class="tab-content">
-                <!-- Real Estate Tab -->
-                <div id="tab-real-estate" class="tab-pane active">
+                <!-- Income Tab (Consolidated) -->
+                <div id="tab-income" class="tab-pane active">
+                    <section class="panel job-section" id="job-section">
+                        <div class="panel-header">
+                            <h2>My Job</h2>
+                            <button class="minimize-btn" id="minimize-job-btn">−</button>
+                        </div>
+                        <div class="job-content" id="job-content">
+                            <div class="input-group">
+                                <label>Your Name</label>
+                                <input type="text" id="player-name-input" placeholder="Enter Name">
+                            </div>
+                            <div class="input-group">
+                                <label>Hourly Wage ($)</label>
+                                <input type="number" id="wage-input" placeholder="0" min="0">
+                            </div>
+                            <div class="job-type-selector">
+                                <button class="job-btn active" data-type="full-time">Full-Time (8h)</button>
+                                <button class="job-btn" data-type="part-time">Part-Time (4h)</button>
+                            </div>
+                            <div class="salary-display">
+                                Daily Salary: <span id="daily-salary" class="highlight">$0</span>
+                            </div>
+                        </div>
+                    </section>
+
                     <section class="panel properties-market">
-                        <h2>Real Estate Market</h2>
-                        <div class="property-grid" id="market-grid">
-                            <!-- Properties injected by JS -->
+                        <div class="panel-header">
+                            <h2>Real Estate Market</h2>
+                            <button class="minimize-btn" data-target="real-estate">−</button>
+                        </div>
+                        <div class="panel-content" id="content-real-estate">
+                            <div class="property-grid" id="market-grid"></div>
                         </div>
                     </section>
-                </div>
 
-                <!-- Stock Tab -->
-                <div id="tab-stock" class="tab-pane">
                     <section class="panel stock-market">
-                        <h2>Stock Market</h2>
-                        <div class="property-grid" id="stock-grid">
-                            <!-- Stocks injected by JS -->
+                        <div class="panel-header">
+                            <h2>Stock Market</h2>
+                            <button class="minimize-btn" data-target="stock">−</button>
+                        </div>
+                        <div class="panel-content" id="content-stock">
+                            <div class="property-grid" id="stock-grid"></div>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-header">
+                            <h2>Land Acquisitions</h2>
+                            <button class="minimize-btn" data-target="lands">−</button>
+                        </div>
+                        <div class="panel-content" id="content-lands">
+                            <div class="property-grid" id="lands-grid"></div>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-header">
+                            <h2>Luxury Cars</h2>
+                            <button class="minimize-btn" data-target="car">−</button>
+                        </div>
+                        <div class="panel-content" id="content-car">
+                            <div class="property-grid" id="car-grid"></div>
                         </div>
                     </section>
                 </div>
 
-                <!-- Lands Tab -->
-                <div id="tab-lands" class="tab-pane">
+                <!-- Expense Tab -->
+                <div id="tab-expense" class="tab-pane">
                     <section class="panel">
-                        <h2>Land Acquisitions</h2>
-                        <div class="property-grid" id="lands-grid"></div>
-                    </section>
-                </div>
-
-                <!-- Car Tab -->
-                <div id="tab-car" class="tab-pane">
-                    <section class="panel">
-                        <h2>Luxury Cars</h2>
-                        <div class="property-grid" id="car-grid"></div>
+                        <div class="panel-header">
+                            <h2>Monthly Expenses</h2>
+                            <button class="minimize-btn" data-target="expense">−</button>
+                        </div>
+                        <div class="panel-content" id="content-expense">
+                            <div class="property-grid" id="expense-grid"></div>
+                        </div>
                     </section>
                 </div>
             </main>
 
             <!-- Health Menu Overlay -->
-            <div id="health-menu" class="health-menu hidden">
-                <div class="health-menu-content">
-                    <div class="menu-header">
-                        <h2>Personal Development</h2>
-                        <button class="close-btn" id="close-health-menu">×</button>
-                    </div>
-
-                    <div class="health-tables">
-                        <section class="panel">
-                            <h3>Good Habits</h3>
-                            <div class="property-grid compact" id="habits-grid"></div>
-                        </section>
-
-                        <section class="panel">
-                            <h3>Skills & Education</h3>
-                            <div class="property-grid compact" id="skills-grid"></div>
-                        </section>
-
-                        <section class="panel">
-                            <h3>Life Goals</h3>
-                            <div class="property-grid compact" id="goals-grid"></div>
-                        </section>
-                    </div>
-                </div>
-            </div>
+            <!-- Health Menu Overlay Removed -->
 
             <aside class="persistent-portfolio">
-                <section class="panel job-section" id="job-section">
-                    <div class="panel-header">
-                        <h2>My Job</h2>
-                        <button class="minimize-btn" id="minimize-job-btn">−</button>
-                    </div>
-                    <div class="job-content" id="job-content">
-                        <div class="input-group">
-                            <label>Your Name</label>
-                            <input type="text" id="player-name-input" placeholder="Enter Name">
-                        </div>
-                        <div class="input-group">
-                            <label>Hourly Wage ($)</label>
-                            <input type="number" id="wage-input" placeholder="0" min="0">
-                        </div>
-                        <div class="job-type-selector">
-                            <button class="job-btn active" data-type="full-time">Full-Time (8h)</button>
-                            <button class="job-btn" data-type="part-time">Part-Time (4h)</button>
-                        </div>
-                        <div class="salary-display">
-                            Daily Salary: <span id="daily-salary" class="highlight">$0</span>
-                        </div>
-                    </div>
-                </section>
+
 
                 <section class="panel my-portfolio" id="portfolio-section">
                     <div class="panel-header">
